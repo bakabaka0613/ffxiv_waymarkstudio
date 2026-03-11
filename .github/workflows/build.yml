@@ -1,29 +1,32 @@
-name: Manual Build v0.0.0.35
+name: Build WaymarkStudio API12 (v0.0.0.35)
 
 on: 
-  workflow_dispatch: # 允許手動點擊執行
+  workflow_dispatch: # 允許手動點擊按鈕執行
 
 jobs:
   Build:
     runs-on: ubuntu-latest
     env:
+        # 定義 Dalamud 依賴存放的路徑
         DALAMUD_HOME: /tmp/dalamud
+    
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
         with:
-          ref: 'v0.0.0.35' # 指定編譯這個版本
+          ref: 'v0.0.0.35' # 鎖定舊版本 Tag
           submodules: true
 
       - name: Set up .NET
-        uses: actions/setup-dotnet@v4 # 升級到 v4 比較穩
+        uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '10.0.x' 
+          dotnet-version: '8.0.x' # API 12 建議使用 7.0 或 8.0
           
-      - name: Download Dalamud Latest
+      - name: Download Legacy Dalamud (API 12)
         run: |
           mkdir -p ${{ env.DALAMUD_HOME }}
-          wget https://goatcorp.github.io/dalamud-distrib/stg/latest.zip -O ${{ env.DALAMUD_HOME }}.zip
+          # 下載 staged 分支的 Dalamud，通常保留較多舊版 API 相容性
+          wget https://goatcorp.github.io/dalamud-distrib/staged/latest.zip -O ${{ env.DALAMUD_HOME }}.zip
           unzip ${{ env.DALAMUD_HOME }}.zip -d ${{ env.DALAMUD_HOME }}
 
       - name: Restore Project
@@ -31,13 +34,14 @@ jobs:
 
       - name: Build Project
         run: |
-          # 使用原作者的路徑設定，並指定輸出 dll
-          dotnet build --configuration Release WaymarkStudio/WaymarkStudio.csproj -p:DalamudLibPath=${{ env.DALAMUD_HOME }}
+          # 執行編譯，並強制指定 Dalamud 引用路徑為我們下載的舊版 DLL
+          dotnet build --configuration Release WaymarkStudio/WaymarkStudio.csproj \
+            -p:DalamudLibPath=${{ env.DALAMUD_HOME }} \
+            -p:AssemblyVersion=0.0.0.35
 
-      - name: Upload Finished Plugin
+      - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: WaymarkStudio-v0.0.0.35
-          # 這裡抓取編譯出來的所有重要檔案
-          path: |
-            WaymarkStudio/bin/Release/WaymarkStudio/
+          name: WaymarkStudio-v0.0.0.35-API12
+          # 抓取輸出目錄下的所有檔案，確保 .dll 和 .json 都在
+          path: WaymarkStudio/bin/Release/WaymarkStudio/
