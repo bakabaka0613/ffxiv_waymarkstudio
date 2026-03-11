@@ -1,40 +1,46 @@
-name: Build WaymarkStudio API12 (v0.0.0.35)
+name: Build WaymarkStudio for CN/TW (v0.0.0.35)
 
 on: 
-  workflow_dispatch: # 允許手動點擊按鈕執行
+  workflow_dispatch: 
 
 jobs:
   Build:
     runs-on: ubuntu-latest
     env:
-        # 定義 Dalamud 依賴存放的路徑
         DALAMUD_HOME: /tmp/dalamud
     
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
         with:
-          ref: 'v0.0.0.35' # 鎖定舊版本 Tag
+          ref: 'v0.0.0.35'
           submodules: true
 
       - name: Set up .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '8.0.x' # API 12 建議使用 7.0 或 8.0
+          dotnet-version: '8.0.x'
           
-      - name: Download Legacy Dalamud (API 12)
+      - name: Install 7z
+        run: sudo apt-get install -y p7zip-full
+
+      - name: Download Yanmu Dalamud (CN/TW Latest)
         run: |
           mkdir -p ${{ env.DALAMUD_HOME }}
-          # 下載 staged 分支的 Dalamud，通常保留較多舊版 API 相容性
-          wget https://goatcorp.github.io/dalamud-distrib/staged/latest.zip -O ${{ env.DALAMUD_HOME }}.zip
-          unzip ${{ env.DALAMUD_HOME }}.zip -d ${{ env.DALAMUD_HOME }}
+          # 解析最新的 .7z 下載連結
+          DOWNLOAD_URL=$(curl -s https://api.github.com/repos/yanmucorp/Dalamud/releases/latest | grep "browser_download_url" | grep ".7z" | cut -d '"' -f 4)
+          echo "Downloading from: $DOWNLOAD_URL"
+          curl -L $DOWNLOAD_URL -o ${{ env.DALAMUD_HOME }}.7z
+          
+          # 使用 7z 進行解壓
+          7z x ${{ env.DALAMUD_HOME }}.7z -o${{ env.DALAMUD_HOME }}
 
       - name: Restore Project
         run: dotnet restore
 
       - name: Build Project
         run: |
-          # 執行編譯，並強制指定 Dalamud 引用路徑為我們下載的舊版 DLL
+          # 編譯並指向下載好的 Dalamud DLL
           dotnet build --configuration Release WaymarkStudio/WaymarkStudio.csproj \
             -p:DalamudLibPath=${{ env.DALAMUD_HOME }} \
             -p:AssemblyVersion=0.0.0.35
@@ -42,6 +48,5 @@ jobs:
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: WaymarkStudio-v0.0.0.35-API12
-          # 抓取輸出目錄下的所有檔案，確保 .dll 和 .json 都在
+          name: WaymarkStudio-v0.0.0.35-CN-TW
           path: WaymarkStudio/bin/Release/WaymarkStudio/
